@@ -1,4 +1,4 @@
-const CACHE_NAME = "nmt-codepad-shell-v0.4.4";
+const CACHE_NAME = "nmt-codepad-shell-v0.4.5";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./manifest.json",
   "./js/app.js", "./icons/icon-192.png", "./icons/icon-512.png"
