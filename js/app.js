@@ -8,7 +8,7 @@ const state = {
   treeCollapsed: new Set(),
   previewHasRun: false
 };
-const VERSION = "0.4.0";
+const VERSION = "0.4.2";
 let pendingWorker = null;
 let toastTimer = null;
 
@@ -419,24 +419,32 @@ function updateViewport() {
   const height = window.visualViewport?.height || window.innerHeight;
   document.documentElement.style.setProperty("--visible-height", `${height}px`);
 }
-function collapseAllFolders() {
-  const collapsed = new Set();
-  for (const file of state.files.values()) {
-    const parts = (file.path || file.name).split("/");
-    for (let i = 1; i < parts.length; i++) collapsed.add(parts.slice(0, i).join("/"));
-  }
-  state.treeCollapsed = collapsed;
-  renderTree();
-}
-
 function setupEvents() {
   $("#menuToggle").addEventListener("click", toggleFilePanel);
-  $("#hidePanelBtn").addEventListener("click", () => $("#filePanel").classList.add("collapsed"));
-  $("#openFilesBtn").addEventListener("click", importWithPicker);
-  $("#openFolderBtn").addEventListener("click", importFolderWithPicker);
+  $("#openBtn").addEventListener("click", () => {
+    const menu = $("#openMenu");
+    const opening = menu.hidden;
+    menu.hidden = !opening;
+    $("#openBtn").setAttribute("aria-expanded", String(opening));
+  });
+  $("#openFilesBtn").addEventListener("click", () => {
+    $("#openMenu").hidden = true;
+    $("#openBtn").setAttribute("aria-expanded", "false");
+    importWithPicker();
+  });
+  $("#openFolderBtn").addEventListener("click", () => {
+    $("#openMenu").hidden = true;
+    $("#openBtn").setAttribute("aria-expanded", "false");
+    importFolderWithPicker();
+  });
+  document.addEventListener("click", event => {
+    if (!event.target.closest(".open-menu-wrap")) {
+      $("#openMenu").hidden = true;
+      $("#openBtn").setAttribute("aria-expanded", "false");
+    }
+  });
   $("#fileInput").addEventListener("change", event => importInputFiles(event.target.files));
   $("#folderInput").addEventListener("change", event => importInputFiles(event.target.files));
-  $("#collapseTreeBtn").addEventListener("click", collapseAllFolders);
 
   $("#editor").addEventListener("input", () => {
     syncEditorToFile();
