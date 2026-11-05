@@ -490,7 +490,9 @@ function setupEvents() {
 async function setupServiceWorker() {
   if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
   try {
-    const registration = await navigator.serviceWorker.register("./sw.js");
+    const registration = await navigator.serviceWorker.register("./sw.js", {
+  scope: "./"
+});
     registration.update().catch(() => {});
     const showWaiting = () => {
       if (registration.waiting && navigator.serviceWorker.controller) {
