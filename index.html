@@ -16,11 +16,11 @@
     <button id="menuToggle" class="icon-btn" type="button" aria-label="파일 탐색기 열기/닫기" title="파일 탐색기">☰</button>
     <div class="brand"><strong>Studio NMT</strong><span>CODE PAD</span></div>
     <div class="top-actions">
-      <span id="versionLabel" class="version">v0.4.3</span>
-      <button id="fullscreenBtn" class="tool-btn" type="button">전체화면</button>
+      <span id="versionLabel" class="version">v0.4.4</span>
     </div>
   </header>
 
+  <div id="drawerBackdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
   <section id="filePanel" class="file-panel collapsed" aria-label="파일 탐색기">
     <div class="panel-heading">
       <strong>파일 탐색기</strong>
@@ -39,17 +39,24 @@
     <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
   </section>
 
+  <div class="pane-toolbar unified-toolbar">
+    <div class="document-controls">
+      <div class="pane-title"><span id="fileIcon">▤</span><span id="activeFileName">새 문서</span><span id="dirtyMark" class="dirty-mark"></span></div>
+      <div class="pane-actions">
+        <button id="newBtn" class="small-btn" type="button">new</button>
+        <button id="saveBtn" class="small-btn" type="button">save</button>
+        <button id="saveAsBtn" class="small-btn" type="button">save as</button>
+      </div>
+    </div>
+    <div class="preview-controls" aria-label="미리보기 도구">
+      <button id="runBtn" class="icon-tool primary-btn" type="button" aria-label="실행" title="실행">▶</button>
+      <button id="refreshBtn" class="icon-tool" type="button" aria-label="새로고침" title="새로고침">↻</button>
+      <button id="togglePreviewBtn" class="icon-tool" type="button" aria-expanded="false" aria-controls="previewContent" aria-label="미리보기 펼치기" title="미리보기 펼치기">◧</button>
+    </div>
+  </div>
+
   <main id="workspace" class="workspace">
     <section id="previewPane" class="pane preview-pane collapsed">
-      <div class="pane-toolbar">
-        <div class="pane-title"><span class="status-dot"></span> 미리보기</div>
-        <div class="pane-actions">
-          <button id="runBtn" class="primary-btn" type="button">▶ 실행</button>
-          <button id="refreshBtn" class="small-btn" type="button">새로고침</button>
-          <button id="previewFullscreenBtn" class="small-btn" type="button">전체화면</button>
-          <button id="togglePreviewBtn" class="small-btn" type="button" aria-expanded="false" aria-controls="previewContent">펼치기</button>
-        </div>
-      </div>
       <div id="previewContent" class="preview-content">
         <iframe id="previewFrame" title="HTML 실행 미리보기" sandbox="allow-scripts allow-forms allow-modals allow-downloads"></iframe>
         <div id="previewPlaceholder" class="preview-placeholder">
@@ -61,14 +68,6 @@
     </section>
 
     <section id="editorPane" class="pane editor-pane">
-      <div class="pane-toolbar editor-toolbar">
-        <div class="pane-title"><span id="fileIcon">▤</span><span id="activeFileName">새 문서</span><span id="dirtyMark" class="dirty-mark"></span></div>
-        <div class="pane-actions">
-          <button id="newBtn" class="small-btn" type="button">새 문서</button>
-          <button id="saveBtn" class="small-btn" type="button">저장</button>
-          <button id="saveAsBtn" class="small-btn" type="button">다른 이름 저장</button>
-        </div>
-      </div>
       <div class="editor-wrap">
         <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="텍스트 편집기" placeholder="여기에 코드를 붙여넣거나 작성하세요."></textarea>
       </div>
