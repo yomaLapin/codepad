@@ -1,9 +1,9 @@
 {
-  "id": "/codepad/",
+  "id": "https://yomalapin.github.io/codepad/",
   "name": "NMT 코드패드",
   "short_name": "코드패드",
   "description": "Studio NMT 개인용 간단 코드 편집기",
-  "start_url": "/codepad/index.html?pwa=1",
+  "start_url": "/codepad/",
   "scope": "/codepad/",
   "display": "standalone",
   "orientation": "any",
