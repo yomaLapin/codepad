@@ -1,0 +1,25 @@
+{
+  "name": "Studio NMT Code Pad",
+  "short_name": "NMT Code Pad",
+  "description": "간단한 코드 작성, 파일 불러오기, HTML 미리보기 도구",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1d1f23",
+  "theme_color": "#202227",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
