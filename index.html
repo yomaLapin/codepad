@@ -14,9 +14,12 @@
 <div id="app" class="app">
   <header class="topbar">
     <button id="menuToggle" class="icon-btn" type="button" aria-label="파일 탐색기 열기/닫기" title="파일 탐색기">☰</button>
-    <div class="brand"><strong>Studio NMT</strong><span>CODE PAD -yomaLapin</span></div>
-    <span id="versionLabel" class="version" style="margin-left: 8px;">v0.4.4</span>
-    <div class="top-actions">
+    <div class="brand">
+      <div class="brand-header">
+        <strong>Studio NMT</strong>
+        <span id="versionLabel" class="version">v0.4.5</span>
+      </div>
+      <span>CODE PAD -yomaLapin</span>
     </div>
   </header>
 
@@ -28,8 +31,8 @@
         <div class="open-menu-wrap">
           <button id="openBtn" class="small-btn" type="button" aria-expanded="false" aria-controls="openMenu">열기 ▾</button>
           <div id="openMenu" class="open-menu" hidden>
-            <button id="openFilesBtn" type="button">파일 선택</button>
-            <button id="openFolderBtn" type="button">폴더 선택</button>
+            <button id="openFilesBtn" type="button">📄 파일 선택</button>
+            <button id="openFolderBtn" type="button">📁 폴더 선택</button>
           </div>
         </div>
       </div>
@@ -39,19 +42,22 @@
     <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
   </section>
 
+  <!-- 단일 통합 툴바 (모든 메뉴 버튼 우측 집결) -->
   <div class="pane-toolbar unified-toolbar">
-    <div class="document-controls">
-      <div class="pane-title"><span id="fileIcon">▤</span><span id="activeFileName">새 문서</span><span id="dirtyMark" class="dirty-mark"></span></div>
-      <div class="pane-actions">
+    <div class="pane-title">
+      <span id="fileIcon">▤</span><span id="activeFileName">새 문서</span><span id="dirtyMark" class="dirty-mark"></span>
+    </div>
+    <div class="toolbar-right-group">
+      <div class="doc-btn-group">
         <button id="newBtn" class="small-btn" type="button">new</button>
         <button id="saveBtn" class="small-btn" type="button">save</button>
         <button id="saveAsBtn" class="small-btn" type="button">save as</button>
       </div>
-    </div>
-    <div class="preview-controls" aria-label="미리보기 도구">
-      <button id="runBtn" class="icon-tool primary-btn" type="button" aria-label="실행" title="실행">▶</button>
-      <button id="refreshBtn" class="icon-tool" type="button" aria-label="새로고침" title="새로고침">↻</button>
-      <button id="togglePreviewBtn" class="icon-tool" type="button" aria-expanded="false" aria-controls="previewContent" aria-label="미리보기 펼치기" title="미리보기 펼치기">◧</button>
+      <div class="preview-controls" aria-label="미리보기 도구">
+        <button id="runBtn" class="icon-tool primary-btn" type="button" aria-label="실행" title="실행">▶</button>
+        <button id="refreshBtn" class="icon-tool" type="button" aria-label="새로고침" title="새로고침">↻</button>
+        <button id="togglePreviewBtn" class="icon-tool" type="button" aria-expanded="false" aria-controls="previewContent" aria-label="미리보기 펼치기" title="미리보기 펼치기">◧</button>
+      </div>
     </div>
   </div>
 
