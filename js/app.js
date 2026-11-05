@@ -8,7 +8,7 @@ const state = {
   treeCollapsed: new Set(),
   previewHasRun: false
 };
-const VERSION = "0.4.3";
+const VERSION = "0.4.4";
 let pendingWorker = null;
 let toastTimer = null;
 
@@ -299,7 +299,7 @@ async function importInputFiles(fileList) {
   }
   if (first) {
     setActive(first);
-    $("#filePanel").classList.remove("collapsed");
+    toggleFilePanel(true);
   }
   toast(`${files.length - failed}개 파일을 불러왔습니다.${failed ? ` (${failed}개 실패)` : ""}`);
   $("#fileInput").value = "";
@@ -320,7 +320,7 @@ async function importWithPicker() {
     }
     if (first) {
       setActive(first);
-      $("#filePanel").classList.remove("collapsed");
+      toggleFilePanel(true);
     }
     toast(`${handles.length}개 파일을 불러왔습니다.`);
   } catch (error) {
@@ -355,7 +355,7 @@ async function importFolderWithPicker() {
     const first = [...state.files.values()].find(file => file.path.includes("/"));
     if (first) {
       setActive(first.id);
-      $("#filePanel").classList.remove("collapsed");
+      toggleFilePanel(true);
     }
     toast(`폴더를 불러왔습니다. 파일 ${added}개`);
   } catch (error) {
@@ -370,8 +370,10 @@ function togglePreview(forceOpen) {
     ? !forceOpen
     : !pane.classList.contains("collapsed");
   pane.classList.toggle("collapsed", shouldCollapse);
-  button.textContent = shouldCollapse ? "펼치기" : "접기";
   button.setAttribute("aria-expanded", String(!shouldCollapse));
+  button.setAttribute("aria-label", shouldCollapse ? "미리보기 펼치기" : "미리보기 접기");
+  button.title = shouldCollapse ? "미리보기 펼치기" : "미리보기 접기";
+  button.textContent = "◧";
 }
 function runPreview() {
   const source = currentContent();
@@ -397,23 +399,13 @@ function refreshPreview() {
   }
   runPreview();
 }
-function toggleFilePanel() {
-  $("#filePanel").classList.toggle("collapsed");
-}
-async function requestFullscreen(element) {
-  if (document.fullscreenElement) {
-    try { await document.exitFullscreen(); } catch (_) {}
-    return;
-  }
-  if (element.requestFullscreen) {
-    try {
-      await element.requestFullscreen();
-    } catch (_) {
-      toast("전체화면 전환이 거부되었습니다. 브라우저 전체화면 기능을 이용해 주세요.");
-    }
-  } else {
-    toast("이 브라우저는 전체화면 API를 지원하지 않습니다.");
-  }
+function toggleFilePanel(forceOpen) {
+  const panel = $("#filePanel");
+  const backdrop = $("#drawerBackdrop");
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : panel.classList.contains("collapsed");
+  panel.classList.toggle("collapsed", !shouldOpen);
+  backdrop.classList.toggle("hidden", !shouldOpen);
+  $("#menuToggle").setAttribute("aria-expanded", String(shouldOpen));
 }
 function updateViewport() {
   const height = window.visualViewport?.height || window.innerHeight;
@@ -424,7 +416,8 @@ function updateBrowserTheme() {
   if (meta) meta.setAttribute("content", "#1d1f23");
 }
 function setupEvents() {
-  $("#menuToggle").addEventListener("click", toggleFilePanel);
+  $("#menuToggle").addEventListener("click", () => toggleFilePanel());
+  $("#drawerBackdrop").addEventListener("click", () => toggleFilePanel(false));
   $("#openBtn").addEventListener("click", () => {
     const menu = $("#openMenu");
     const opening = menu.hidden;
@@ -463,11 +456,6 @@ function setupEvents() {
   $("#runBtn").addEventListener("click", runPreview);
   $("#refreshBtn").addEventListener("click", refreshPreview);
   $("#togglePreviewBtn").addEventListener("click", () => togglePreview());
-  $("#previewFullscreenBtn").addEventListener("click", async () => {
-    togglePreview(true);
-    await requestFullscreen($("#previewPane"));
-  });
-  $("#fullscreenBtn").addEventListener("click", () => requestFullscreen(document.documentElement));
 
   $("#saveExtension").addEventListener("change", () => {
     $("#customExtensionWrap").hidden = $("#saveExtension").value !== "custom";
@@ -500,8 +488,6 @@ function setupEvents() {
     }
   });
   window.addEventListener("resize", updateViewport);
-  document.addEventListener("fullscreenchange", updateBrowserTheme);
-  document.addEventListener("webkitfullscreenchange", updateBrowserTheme);
   window.visualViewport?.addEventListener("resize", updateViewport);
   window.visualViewport?.addEventListener("scroll", updateViewport);
 }
