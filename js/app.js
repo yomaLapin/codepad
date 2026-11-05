@@ -8,7 +8,7 @@ const state = {
   treeCollapsed: new Set(),
   previewHasRun: false
 };
-const VERSION = "0.4.4";
+const VERSION = "0.4.5";
 let pendingWorker = null;
 let toastTimer = null;
 
@@ -250,7 +250,6 @@ async function saveAs(name, extension) {
   const fullName = cleanName.replace(/\.[^.]+$/, "") + ext;
   const content = currentContent();
 
-  // 지원 브라우저에서는 저장 위치와 파일명을 직접 선택할 수 있습니다.
   if (typeof window.showSaveFilePicker === "function") {
     try {
       const handle = await window.showSaveFilePicker({
@@ -383,7 +382,6 @@ function runPreview() {
   }
   const frame = $("#previewFrame");
   $("#previewPlaceholder").classList.add("hidden");
-  // 완전한 HTML 문서가 아니면 body 내용으로 감싸 실행합니다.
   const html = /<!doctype|<html[\s>]/i.test(source)
     ? source
     : `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${source}</body></html>`;
@@ -411,10 +409,7 @@ function updateViewport() {
   const height = window.visualViewport?.height || window.innerHeight;
   document.documentElement.style.setProperty("--visible-height", `${height}px`);
 }
-function updateBrowserTheme() {
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", "#1d1f23");
-}
+
 function setupEvents() {
   $("#menuToggle").addEventListener("click", () => toggleFilePanel());
   $("#drawerBackdrop").addEventListener("click", () => toggleFilePanel(false));
@@ -525,7 +520,7 @@ function init() {
   updateViewport();
   const id = addFile("새 문서", "", "새 문서");
   setActive(id);
-  togglePreview(false); // 기본 접힘
+  togglePreview(false);
   setupServiceWorker();
 }
 document.addEventListener("DOMContentLoaded", init);
