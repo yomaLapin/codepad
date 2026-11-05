@@ -2,8 +2,8 @@
   "name": "Studio NMT Code Pad",
   "short_name": "NMT Code Pad",
   "description": "간단한 코드 작성, 파일 불러오기, HTML 미리보기 도구",
-  "start_url": "./codepad/?source=pwa",
-  "scope": "./codepad/",
+  "start_url": "/codepad/?source=pwa",
+  "scope": "/codepad/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#1d1f23",
@@ -22,7 +22,7 @@
       "purpose": "any"
     }
   ],
-  "id": "/codepad/",
+  "id": "codepad",
   "display_override": [
     "standalone",
     "minimal-ui"
