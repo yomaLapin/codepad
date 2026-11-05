@@ -8,7 +8,7 @@ const state = {
   treeCollapsed: new Set(),
   previewHasRun: false
 };
-const VERSION = "0.4.2";
+const VERSION = "0.4.3";
 let pendingWorker = null;
 let toastTimer = null;
 
@@ -419,6 +419,10 @@ function updateViewport() {
   const height = window.visualViewport?.height || window.innerHeight;
   document.documentElement.style.setProperty("--visible-height", `${height}px`);
 }
+function updateBrowserTheme() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", "#1d1f23");
+}
 function setupEvents() {
   $("#menuToggle").addEventListener("click", toggleFilePanel);
   $("#openBtn").addEventListener("click", () => {
@@ -496,6 +500,8 @@ function setupEvents() {
     }
   });
   window.addEventListener("resize", updateViewport);
+  document.addEventListener("fullscreenchange", updateBrowserTheme);
+  document.addEventListener("webkitfullscreenchange", updateBrowserTheme);
   window.visualViewport?.addEventListener("resize", updateViewport);
   window.visualViewport?.addEventListener("scroll", updateViewport);
 }
