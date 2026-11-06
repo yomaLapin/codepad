@@ -1,529 +1,238 @@
 (() => {
 "use strict";
-const $ = (selector) => document.querySelector(selector);
-const state = {
-  files: new Map(),
-  activeId: null,
-  dirty: false,
-  treeCollapsed: new Set(),
-  previewHasRun: false
-};
-const VERSION = "0.4.5";
-let pendingWorker = null;
-let toastTimer = null;
+const $ = s => document.querySelector(s);
+const VERSION = "0.5.0";
+const DB_NAME = "nmt-codepad";
+const STORE = "workspace";
+const state = { files:new Map(), activeId:null, treeCollapsed:new Set(), previewHasRun:false, db:null, timer:null, worker:null };
+let toastTimer;
 
-const makeId = () => (window.crypto && crypto.randomUUID)
-  ? crypto.randomUUID()
-  : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const extensionOf = (name = "") => {
-  const dot = name.lastIndexOf(".");
-  return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
-};
-const isHtml = (name = "") => ["html", "htm"].includes(extensionOf(name));
+const id = () => crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+const ext = n => { const i=(n||"").lastIndexOf("."); return i>0?n.slice(i+1).toLowerCase():""; };
+const active = () => state.files.get(state.activeId) || null;
 
 function toast(message) {
-  const element = $("#toast");
-  element.textContent = message;
-  element.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => element.classList.remove("show"), 2600);
+  $("#toast").textContent=message; $("#toast").classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>$("#toast").classList.remove("show"),2800);
 }
-function setDirty(dirty) {
-  state.dirty = dirty;
-  $("#dirtyMark").textContent = dirty ? "●" : "";
-  $("#saveStatus").textContent = dirty ? "수정됨" : "저장됨";
+function labels() {
+  const f=active(); $("#activeFileName").textContent=f?.name||"새 문서";
+  $("#languageLabel").textContent=ext(f?.name).toUpperCase()||"TEXT";
+  $("#dirtyMark").textContent=f?.dirty?"●":"";
+  if(f?.dirty) $("#saveStatus").textContent="수정됨";
 }
-function addFile(name, content = "", path = name, handle = null) {
-  const id = makeId();
-  state.files.set(id, { id, name, path, content, handle });
-  return id;
+function cursor() {
+  const t=$("#editor").value, p=$("#editor").selectionStart||0, b=t.slice(0,p);
+  $("#cursorLabel").textContent=`Ln ${b.split("\n").length}, Col ${b.length-b.lastIndexOf("\n")}`;
 }
-function activeFile() {
-  return state.activeId ? state.files.get(state.activeId) || null : null;
-}
-function syncEditorToFile() {
-  const file = activeFile();
-  if (file) file.content = $("#editor").value;
-}
-function updateLabels() {
-  const file = activeFile();
-  const name = file?.name || "새 문서";
-  $("#activeFileName").textContent = name;
-  $("#languageLabel").textContent = extensionOf(name).toUpperCase() || "TEXT";
-}
-function setActive(id) {
-  syncEditorToFile();
-  const file = state.files.get(id);
-  if (!file) return;
-  state.activeId = id;
-  $("#editor").value = file.content;
-  updateLabels();
-  setDirty(false);
-  $("#saveStatus").textContent = file.handle ? "원본 파일 연결됨" : "불러옴";
-  updateCursor();
-  renderTree();
-}
-function newDocument() {
-  syncEditorToFile();
-  const id = addFile("새 문서", "", "새 문서");
-  state.activeId = id;
-  $("#editor").value = "";
-  updateLabels();
-  setDirty(false);
-  $("#saveStatus").textContent = "새 문서";
-  renderTree();
-  $("#editor").focus();
-  toast("새 문서를 만들었습니다.");
-}
-function updateCursor() {
-  const text = $("#editor").value;
-  const pos = $("#editor").selectionStart || 0;
-  const before = text.slice(0, pos);
-  const line = before.split("\n").length;
-  const col = before.length - before.lastIndexOf("\n");
-  $("#cursorLabel").textContent = `Ln ${line}, Col ${col}`;
-}
-function renderTree() {
-  const root = $("#treeRoot");
-  root.replaceChildren();
-  if (!state.files.size) {
-    const empty = document.createElement("p");
-    empty.className = "empty-tree";
-    empty.textContent = "불러온 파일이 여기에 표시됩니다.";
-    root.append(empty);
-    return;
-  }
-  const tree = {};
-  for (const file of state.files.values()) {
-    const parts = (file.path || file.name).split("/").filter(Boolean);
-    let node = tree;
-    parts.forEach((part, index) => {
-      node[part] ||= { children: {} };
-      if (index === parts.length - 1) node[part].file = file;
-      node = node[part].children;
-    });
-  }
-  const draw = (node, parent, prefix = "") => {
-    Object.entries(node).sort((a, b) => {
-      const aFile = !!a[1].file, bFile = !!b[1].file;
-      return aFile === bFile ? a[0].localeCompare(b[0]) : aFile ? 1 : -1;
-    }).forEach(([name, item]) => {
-      const fullPath = prefix ? `${prefix}/${name}` : name;
-      const hasChildren = Object.keys(item.children).length > 0;
-      const isFile = !!item.file;
-      const wrap = document.createElement("div");
-      const row = document.createElement("div");
-      row.className = "tree-item" + (isFile && item.file.id === state.activeId ? " selected" : "");
-      row.setAttribute("role", "button");
-      row.tabIndex = 0;
-      const caret = document.createElement("span");
-      caret.className = "tree-caret";
-      caret.textContent = hasChildren ? (state.treeCollapsed.has(fullPath) ? "▸" : "▾") : "";
-      const icon = document.createElement("span");
-      icon.className = "tree-icon";
-      icon.textContent = isFile ? "▤" : "▰";
-      const label = document.createElement("span");
-      label.textContent = name;
-      row.append(caret, icon, label);
-      wrap.append(row);
-      parent.append(wrap);
-      const activate = () => {
-        if (isFile) {
-          setActive(item.file.id);
-        } else if (hasChildren) {
-          state.treeCollapsed.has(fullPath)
-            ? state.treeCollapsed.delete(fullPath)
-            : state.treeCollapsed.add(fullPath);
-          renderTree();
-        }
-      };
-      row.addEventListener("click", activate);
-      row.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          activate();
-        }
-      });
-      if (hasChildren && !state.treeCollapsed.has(fullPath)) {
-        const children = document.createElement("div");
-        children.className = "tree-children";
-        wrap.append(children);
-        draw(item.children, children, fullPath);
-      }
-    });
-  };
-  draw(tree, root);
-}
+function sync() { const f=active(); if(f) f.content=$("#editor").value; }
+function persistSoon() { clearTimeout(state.timer); state.timer=setTimeout(persist,300); }
 
-function safeFilename(name) {
-  return name.trim().replace(/[\\/:*?"<>|]/g, "_").replace(/\.+$/, "");
+function openDB() {
+  return new Promise((resolve,reject)=>{
+    const r=indexedDB.open(DB_NAME,1);
+    r.onupgradeneeded=()=>r.result.createObjectStore(STORE);
+    r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
+  });
 }
-function saveBlob(name, content) {
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-function currentContent() {
-  syncEditorToFile();
-  return $("#editor").value;
-}
-function openSaveDialog() {
-  const file = activeFile();
-  const oldName = file?.name || "새 문서";
-  const ext = extensionOf(oldName);
-  $("#saveName").value = ext ? oldName.slice(0, -(ext.length + 1)) : oldName;
-  $("#saveExtension").value = ext ? `.${ext}` : "";
-  $("#customExtensionWrap").hidden = true;
-  $("#customExtension").value = "";
-  $("#saveDialog").hidden = false;
-  $("#saveName").focus();
-  $("#saveName").select();
-}
-function closeSaveDialog() {
-  $("#saveDialog").hidden = true;
-}
-function applySavedName(fullName, content, handle = null) {
-  let file = activeFile();
-  if (!file) {
-    const id = addFile(fullName, content, fullName, handle);
-    state.activeId = id;
-    file = state.files.get(id);
-  } else {
-    file.name = fullName;
-    file.path = fullName;
-    file.content = content;
-    file.handle = handle;
-  }
-  updateLabels();
-  setDirty(false);
-  $("#saveStatus").textContent = "저장 완료";
-  renderTree();
-}
-async function writeHandle(handle, content) {
-  const writable = await handle.createWritable();
-  await writable.write(content);
-  await writable.close();
-}
-async function saveCurrent() {
-  const file = activeFile();
-  const content = currentContent();
-  if (file?.handle && typeof file.handle.createWritable === "function") {
-    try {
-      await writeHandle(file.handle, content);
-      setDirty(false);
-      $("#saveStatus").textContent = "원본 파일에 저장됨";
-      toast(`${file.name} 원본 파일에 저장했습니다.`);
-      return;
-    } catch (error) {
-      console.error(error);
-      toast("원본 파일 저장에 실패했습니다. 다른 이름으로 저장해 주세요.");
-      return;
-    }
-  }
-  if (file && extensionOf(file.name)) {
-    saveBlob(file.name, content);
-    setDirty(false);
-    $("#saveStatus").textContent = "다운로드 완료";
-    toast(`${file.name} 다운로드를 시작했습니다.`);
-  } else {
-    openSaveDialog();
+async function persist() {
+  if(!state.db) return;
+  const payload={files:[...state.files.values()],activeId:state.activeId,updated:Date.now()};
+  const write=data=>new Promise((resolve,reject)=>{
+    const tx=state.db.transaction(STORE,"readwrite");
+    tx.objectStore(STORE).put(data,"current");
+    tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error); tx.onabort=()=>reject(tx.error);
+  });
+  try { await write(payload); }
+  catch(e) {
+    // 일부 브라우저에서 파일 핸들 직렬화가 실패하면 핸들을 빼고 편집 내용만 저장
+    try { await write({...payload,files:payload.files.map(({handle,...f})=>f)}); }
+    catch(err) { console.warn("임시 저장 실패",err); }
   }
 }
-async function saveAs(name, extension) {
-  const cleanName = safeFilename(name);
-  let ext = extension.trim();
-  if (!ext.startsWith(".")) ext = `.${ext}`;
-  if (!cleanName) {
-    toast("파일 이름을 입력해 주세요.");
-    return false;
-  }
-  if (!/^\.[a-zA-Z0-9_-]+$/.test(ext)) {
-    toast("확장자 형식을 확인해 주세요.");
-    return false;
-  }
-  const fullName = cleanName.replace(/\.[^.]+$/, "") + ext;
-  const content = currentContent();
-
-  if (typeof window.showSaveFilePicker === "function") {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: fullName,
-        types: [{ description: "텍스트 파일", accept: { "text/plain": [ext] } }]
-      });
-      await writeHandle(handle, content);
-      applySavedName(handle.name || fullName, content, handle);
-      toast(`${handle.name || fullName} 저장 완료`);
-      return true;
-    } catch (error) {
-      if (error?.name === "AbortError") return false;
-      console.warn("파일 저장 선택기 사용 실패, 다운로드로 전환", error);
-    }
-  }
-  saveBlob(fullName, content);
-  applySavedName(fullName, content, null);
-  toast(`${fullName} 다운로드 완료`);
+async function restore() {
+  if(!state.db) return false;
+  const data=await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction(STORE,"readonly"), r=tx.objectStore(STORE).get("current");
+    r.onsuccess=()=>resolve(r.result||null); r.onerror=()=>reject(r.error);
+  });
+  if(!data?.files?.length) return false;
+  state.files=new Map(data.files.map(f=>[f.id,{...f,handle:f.handle||null,dirty:!!f.dirty}]));
+  state.activeId=state.files.has(data.activeId)?data.activeId:state.files.keys().next().value;
+  const f=active(); $("#editor").value=f?.content||""; labels(); cursor(); renderTree();
+  $("#saveStatus").textContent=f?.dirty?"임시 저장된 수정 내용 복구됨":(f?.handle?"파일 연결 복구됨":"작업 내용 복구됨");
   return true;
 }
-
-async function readFile(file, path, handle = null) {
-  const content = await file.text();
-  const existing = [...state.files.values()].find(item => item.path === path);
-  if (existing) {
-    existing.name = file.name;
-    existing.content = content;
-    existing.handle = handle || existing.handle;
-    return existing.id;
+function addFile(name,content="",path=name,handle=null) {
+  const file={id:id(),name,path,content,handle,dirty:false}; state.files.set(file.id,file); return file.id;
+}
+function setActive(fileId) {
+  sync(); const f=state.files.get(fileId); if(!f)return;
+  state.activeId=fileId; $("#editor").value=f.content||""; labels(); cursor(); renderTree();
+  $("#saveStatus").textContent=f.dirty?"수정됨":(f.handle?"원본 파일 연결됨":"불러옴");
+  persistSoon();
+}
+function newDocument() {
+  sync(); const fileId=addFile("새 문서","","새 문서");
+  state.activeId=fileId; $("#editor").value=""; labels(); cursor(); renderTree(); persistSoon();
+  $("#saveStatus").textContent="새 문서"; $("#editor").focus(); toast("새 문서를 만들었습니다.");
+}
+function renderTree() {
+  const root=$("#treeRoot"); root.replaceChildren();
+  if(!state.files.size){const p=document.createElement("p");p.className="empty-tree";p.textContent="불러온 파일이 여기에 표시됩니다.";root.append(p);return;}
+  const tree={};
+  for(const f of state.files.values()){
+    const parts=(f.path||f.name).split("/").filter(Boolean); let n=tree;
+    parts.forEach((part,i)=>{n[part] ||= {children:{}};if(i===parts.length-1)n[part].file=f;n=n[part].children;});
   }
-  return addFile(file.name, content, path, handle);
-}
-async function importInputFiles(fileList) {
-  const files = [...fileList];
-  if (!files.length) return;
-  let first = null, failed = 0;
-  for (const file of files) {
-    try {
-      const path = file.webkitRelativePath || file.name;
-      const id = await readFile(file, path);
-      if (!first) first = id;
-    } catch (error) {
-      failed++;
-      console.warn("파일 읽기 실패", file.name, error);
-    }
-  }
-  if (first) {
-    setActive(first);
-    toggleFilePanel(true);
-  }
-  toast(`${files.length - failed}개 파일을 불러왔습니다.${failed ? ` (${failed}개 실패)` : ""}`);
-  $("#fileInput").value = "";
-  $("#folderInput").value = "";
-}
-async function importWithPicker() {
-  if (typeof window.showOpenFilePicker !== "function") {
-    $("#fileInput").click();
-    return;
-  }
-  try {
-    const handles = await window.showOpenFilePicker({ multiple: true });
-    let first = null;
-    for (const handle of handles) {
-      const file = await handle.getFile();
-      const id = await readFile(file, file.name, handle);
-      if (!first) first = id;
-    }
-    if (first) {
-      setActive(first);
-      toggleFilePanel(true);
-    }
-    toast(`${handles.length}개 파일을 불러왔습니다.`);
-  } catch (error) {
-    if (error?.name !== "AbortError") toast("파일을 불러오지 못했습니다.");
-  }
-}
-async function walkDirectory(directoryHandle, prefix = "") {
-  for await (const [name, handle] of directoryHandle.entries()) {
-    const path = prefix ? `${prefix}/${name}` : name;
-    if (handle.kind === "directory") {
-      await walkDirectory(handle, path);
-    } else if (handle.kind === "file") {
-      try {
-        const file = await handle.getFile();
-        await readFile(file, path, handle);
-      } catch (error) {
-        console.warn("폴더 내 파일 읽기 실패", path, error);
-      }
-    }
-  }
-}
-async function importFolderWithPicker() {
-  if (typeof window.showDirectoryPicker !== "function") {
-    $("#folderInput").click();
-    return;
-  }
-  try {
-    const directory = await window.showDirectoryPicker({ mode: "readwrite" });
-    const before = state.files.size;
-    await walkDirectory(directory);
-    const added = state.files.size - before;
-    const first = [...state.files.values()].find(file => file.path.includes("/"));
-    if (first) {
-      setActive(first.id);
-      toggleFilePanel(true);
-    }
-    toast(`폴더를 불러왔습니다. 파일 ${added}개`);
-  } catch (error) {
-    if (error?.name !== "AbortError") toast("폴더를 불러오지 못했습니다.");
-  }
-}
-
-function togglePreview(forceOpen) {
-  const pane = $("#previewPane");
-  const button = $("#togglePreviewBtn");
-  const shouldCollapse = typeof forceOpen === "boolean"
-    ? !forceOpen
-    : !pane.classList.contains("collapsed");
-  pane.classList.toggle("collapsed", shouldCollapse);
-  button.setAttribute("aria-expanded", String(!shouldCollapse));
-  button.setAttribute("aria-label", shouldCollapse ? "미리보기 펼치기" : "미리보기 접기");
-  button.title = shouldCollapse ? "미리보기 펼치기" : "미리보기 접기";
-  button.textContent = "◧";
-}
-function runPreview() {
-  const source = currentContent();
-  if (!source.trim()) {
-    toast("실행할 내용이 없습니다.");
-    return;
-  }
-  const frame = $("#previewFrame");
-  $("#previewPlaceholder").classList.add("hidden");
-  const html = /<!doctype|<html[\s>]/i.test(source)
-    ? source
-    : `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${source}</body></html>`;
-  frame.srcdoc = html;
-  state.previewHasRun = true;
-  togglePreview(true);
-  toast("미리보기를 실행했습니다.");
-}
-function refreshPreview() {
-  if (!state.previewHasRun) {
-    runPreview();
-    return;
-  }
-  runPreview();
-}
-function toggleFilePanel(forceOpen) {
-  const panel = $("#filePanel");
-  const backdrop = $("#drawerBackdrop");
-  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : panel.classList.contains("collapsed");
-  panel.classList.toggle("collapsed", !shouldOpen);
-  backdrop.classList.toggle("hidden", !shouldOpen);
-  $("#menuToggle").setAttribute("aria-expanded", String(shouldOpen));
-}
-function updateViewport() {
-  const height = window.visualViewport?.height || window.innerHeight;
-  document.documentElement.style.setProperty("--visible-height", `${height}px`);
-}
-
-function setupEvents() {
-  $("#menuToggle").addEventListener("click", () => toggleFilePanel());
-  $("#drawerBackdrop").addEventListener("click", () => toggleFilePanel(false));
-  $("#openBtn").addEventListener("click", () => {
-    const menu = $("#openMenu");
-    const opening = menu.hidden;
-    menu.hidden = !opening;
-    $("#openBtn").setAttribute("aria-expanded", String(opening));
-  });
-  $("#openFilesBtn").addEventListener("click", () => {
-    $("#openMenu").hidden = true;
-    $("#openBtn").setAttribute("aria-expanded", "false");
-    importWithPicker();
-  });
-  $("#openFolderBtn").addEventListener("click", () => {
-    $("#openMenu").hidden = true;
-    $("#openBtn").setAttribute("aria-expanded", "false");
-    importFolderWithPicker();
-  });
-  document.addEventListener("click", event => {
-    if (!event.target.closest(".open-menu-wrap")) {
-      $("#openMenu").hidden = true;
-      $("#openBtn").setAttribute("aria-expanded", "false");
-    }
-  });
-  $("#fileInput").addEventListener("change", event => importInputFiles(event.target.files));
-  $("#folderInput").addEventListener("change", event => importInputFiles(event.target.files));
-
-  $("#editor").addEventListener("input", () => {
-    syncEditorToFile();
-    setDirty(true);
-    updateCursor();
-  });
-  ["click", "keyup", "select"].forEach(type => $("#editor").addEventListener(type, updateCursor));
-  $("#newBtn").addEventListener("click", newDocument);
-  $("#saveBtn").addEventListener("click", saveCurrent);
-  $("#saveAsBtn").addEventListener("click", openSaveDialog);
-
-  $("#runBtn").addEventListener("click", runPreview);
-  $("#refreshBtn").addEventListener("click", refreshPreview);
-  $("#togglePreviewBtn").addEventListener("click", () => togglePreview());
-
-  $("#saveExtension").addEventListener("change", () => {
-    $("#customExtensionWrap").hidden = $("#saveExtension").value !== "custom";
-    if ($("#saveExtension").value === "custom") $("#customExtension").focus();
-  });
-  $("#cancelSaveBtn").addEventListener("click", closeSaveDialog);
-  $("#saveDialog").addEventListener("click", event => {
-    if (event.target === $("#saveDialog")) closeSaveDialog();
-  });
-  $("#saveForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    let extension = $("#saveExtension").value;
-    if (extension === "custom") extension = $("#customExtension").value;
-    if (!extension) {
-      toast("확장자를 선택하거나 입력해 주세요.");
-      return;
-    }
-    const saved = await saveAs($("#saveName").value, extension);
-    if (saved) closeSaveDialog();
-  });
-  $("#applyUpdateBtn").addEventListener("click", () => {
-    if (pendingWorker) pendingWorker.postMessage({ type: "SKIP_WAITING" });
-  });
-  $("#dismissUpdateBtn").addEventListener("click", () => $("#updateBanner").hidden = true);
-
-  window.addEventListener("beforeunload", event => {
-    if (state.dirty) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-  });
-  window.addEventListener("resize", updateViewport);
-  window.visualViewport?.addEventListener("resize", updateViewport);
-  window.visualViewport?.addEventListener("scroll", updateViewport);
-}
-
-async function setupServiceWorker() {
-  if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
-  try {
-    const registration = await navigator.serviceWorker.register("./sw.js", {
-  scope: "./"
-});
-    registration.update().catch(() => {});
-    const showWaiting = () => {
-      if (registration.waiting && navigator.serviceWorker.controller) {
-        pendingWorker = registration.waiting;
-        $("#updateBanner").hidden = false;
-      }
-    };
-    showWaiting();
-    registration.addEventListener("updatefound", () => {
-      const worker = registration.installing;
-      worker?.addEventListener("statechange", () => {
-        if (worker.state === "installed" && navigator.serviceWorker.controller) {
-          pendingWorker = worker;
-          $("#updateBanner").hidden = false;
-        }
-      });
+  const draw=(node,parent,prefix="")=>{
+    Object.entries(node).sort((a,b)=>!!a[1].file-!!b[1].file||a[0].localeCompare(b[0])).forEach(([name,item])=>{
+      const path=prefix?`${prefix}/${name}`:name, has=Object.keys(item.children).length>0, isFile=!!item.file;
+      const wrap=document.createElement("div"), row=document.createElement("div"); row.className="tree-item"+(isFile&&item.file.id===state.activeId?" selected":"");row.setAttribute("role","button");row.tabIndex=0;
+      const caret=document.createElement("span");caret.className="tree-caret";caret.textContent=has?(state.treeCollapsed.has(path)?"▸":"▾"):"";
+      const ico=document.createElement("span");ico.className="tree-icon";ico.textContent=isFile?"▤":"▰";
+      const label=document.createElement("span");label.textContent=name+(isFile&&item.file.dirty?" ●":"");row.append(caret,ico,label);wrap.append(row);parent.append(wrap);
+      const activate=()=>{if(isFile)setActive(item.file.id);else if(has){state.treeCollapsed.has(path)?state.treeCollapsed.delete(path):state.treeCollapsed.add(path);renderTree();}};
+      row.addEventListener("click",activate);row.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();activate();}});
+      if(has&&!state.treeCollapsed.has(path)){const child=document.createElement("div");child.className="tree-children";wrap.append(child);draw(item.children,child,path);}
     });
-    navigator.serviceWorker.addEventListener("controllerchange", () => location.reload());
-  } catch (error) {
-    console.warn("서비스 워커 등록 실패", error);
+  }; draw(tree,root);
+}
+function safeName(n){return n.trim().replace(/[\\/:*?"<>|]/g,"_").replace(/\.+$/,"");}
+function downloadFile(name,content) {
+  const url=URL.createObjectURL(new Blob([content],{type:"text/plain;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download=name;a.style.display="none";document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+function currentContent(){sync();return $("#editor").value;}
+function openSaveDialog(){
+  const f=active(), old=f?.name||"새 문서", e=ext(old);
+  $("#saveName").value=e?old.slice(0,-(e.length+1)):old;$("#saveExtension").value=e?`.${e}`:"";
+  $("#customExtensionWrap").hidden=true;$("#customExtension").value="";$("#saveDialog").hidden=false;$("#saveName").focus();$("#saveName").select();
+}
+function closeSaveDialog(){$("#saveDialog").hidden=true;}
+function applySavedName(name,content,handle=null){
+  let f=active();if(!f){const fid=addFile(name,content,name,handle);state.activeId=fid;f=active();}
+  else{Object.assign(f,{name,path:name,content,handle,dirty:false});}
+  labels();renderTree();persistSoon();
+}
+async function permissionForWrite(handle){
+  if(typeof handle.queryPermission!=="function")return true;
+  let p=await handle.queryPermission({mode:"readwrite"});
+  if(p!=="granted"&&typeof handle.requestPermission==="function")p=await handle.requestPermission({mode:"readwrite"});
+  return p==="granted";
+}
+async function writeHandle(handle,content){
+  const w=await handle.createWritable();
+  try{await w.write(content);await w.close();}catch(e){try{await w.abort();}catch(_){}throw e;}
+}
+async function saveCurrent(){
+  const f=active();if(!f){openSaveDialog();return;}const content=currentContent();
+  if(f.handle&&typeof f.handle.createWritable==="function"){
+    try{
+      if(!await permissionForWrite(f.handle)){toast("원본 파일 쓰기 권한이 없습니다. 다른 이름으로 저장해 주세요.");$("#saveStatus").textContent="원본 저장 권한 없음";return;}
+      await writeHandle(f.handle,content);f.dirty=false;labels();$("#saveStatus").textContent="원본 파일에 저장됨";renderTree();persistSoon();toast(`${f.name} 원본 파일에 저장했습니다.`);return;
+    }catch(e){console.error(e);$("#saveStatus").textContent="원본 저장 실패";toast("원본 저장에 실패했습니다. 다른 이름으로 저장해 주세요.");return;}
+  }
+  downloadFile(f.name,content);f.dirty=false;labels();$("#saveStatus").textContent="파일 내보내기 요청됨";renderTree();persistSoon();
+  toast(`${f.name} 다운로드를 요청했습니다. 저장 위치를 확인해 주세요.`);
+}
+async function saveAs(name,extension){
+  const clean=safeName(name);let e=extension.trim();if(!e.startsWith("."))e=`.${e}`;
+  if(!clean){toast("파일 이름을 입력해 주세요.");return false;}
+  if(!/^\.[a-zA-Z0-9_-]+$/.test(e)){toast("확장자 형식을 확인해 주세요.");return false;}
+  const full=clean.replace(/\.[^.]+$/,"")+e,content=currentContent();
+  if(typeof window.showSaveFilePicker==="function"){
+    try{
+      const h=await window.showSaveFilePicker({suggestedName:full,types:[{description:"텍스트 및 코드 파일",accept:{"text/plain":[e]}}]});
+      await writeHandle(h,content);applySavedName(h.name||full,content,h);$("#saveStatus").textContent="파일 저장 완료";toast(`${h.name||full} 저장 완료`);return true;
+    }catch(err){if(err?.name==="AbortError")return false;console.warn(err);toast("저장 선택기를 사용할 수 없어 다운로드로 전환합니다.");}
+  }
+  downloadFile(full,content);applySavedName(full,content,null);$("#saveStatus").textContent="파일 내보내기 요청됨";
+  toast(`${full} 다운로드를 요청했습니다. 저장 위치를 확인해 주세요.`);return true;
+}
+async function readFile(file,path,handle=null){
+  const content=await file.text(), existing=[...state.files.values()].find(f=>f.path===path);
+  if(existing){Object.assign(existing,{name:file.name,content,handle,dirty:false});return existing.id;}
+  return addFile(file.name,content,path,handle);
+}
+async function importInputFiles(list){
+  const files=[...list];if(!files.length)return;let first=null,failed=0;
+  for(const file of files){try{const fid=await readFile(file,file.webkitRelativePath||file.name,null);if(!first)first=fid;}catch(e){failed++;console.warn(e);}}
+  if(first){setActive(first);toggleFilePanel(true);}persistSoon();
+  toast(`${files.length-failed}개 파일을 불러왔습니다.${failed?` (${failed}개 실패)`:""}`);
+  $("#fileInput").value="";$("#folderInput").value="";
+}
+async function importWithPicker(){
+  if(typeof window.showOpenFilePicker!=="function"){$("#fileInput").click();return;}
+  try{const handles=await window.showOpenFilePicker({multiple:true});let first=null;
+    for(const h of handles){const f=await h.getFile(),fid=await readFile(f,f.name,h);if(!first)first=fid;}
+    if(first){setActive(first);toggleFilePanel(true);}persistSoon();toast(`${handles.length}개 파일을 불러왔습니다.`);
+  }catch(e){if(e?.name!=="AbortError"){console.error(e);toast("파일을 불러오지 못했습니다.");}}
+}
+async function walkDirectory(dir,prefix=""){
+  for await(const [name,h] of dir.entries()){const path=prefix?`${prefix}/${name}`:name;
+    if(h.kind==="directory")await walkDirectory(h,path);
+    else try{await readFile(await h.getFile(),path,h);}catch(e){console.warn(path,e);}
   }
 }
-
-function init() {
-  $("#versionLabel").textContent = `v${VERSION}`;
-  setupEvents();
-  updateViewport();
-  const id = addFile("새 문서", "", "새 문서");
-  setActive(id);
-  togglePreview(false);
-  setupServiceWorker();
+async function importFolderWithPicker(){
+  if(typeof window.showDirectoryPicker!=="function"){$("#folderInput").click();return;}
+  try{const dir=await window.showDirectoryPicker({mode:"readwrite"});await walkDirectory(dir);
+    const f=[...state.files.values()].find(x=>x.path.includes("/"));if(f){setActive(f.id);toggleFilePanel(true);}
+    persistSoon();toast("폴더를 불러왔습니다.");
+  }catch(e){if(e?.name!=="AbortError"){console.error(e);toast("폴더를 불러오지 못했습니다.");}}
 }
-document.addEventListener("DOMContentLoaded", init);
+function togglePreview(force){
+  const pane=$("#previewPane"),btn=$("#togglePreviewBtn");
+  const collapse=typeof force==="boolean"?!force:!pane.classList.contains("collapsed");
+  pane.classList.toggle("collapsed",collapse);btn.setAttribute("aria-expanded",String(!collapse));
+  btn.setAttribute("aria-label",collapse?"미리보기 펼치기":"미리보기 접기");btn.title=collapse?"미리보기 펼치기":"미리보기 접기";
+}
+function runPreview(){
+  const source=currentContent();if(!source.trim()){toast("실행할 내용이 없습니다.");return;}
+  const html=/(<!doctype|<html[\s>])/i.test(source)?source:`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${source}</body></html>`;
+  $("#previewPlaceholder").classList.add("hidden");$("#previewFrame").srcdoc=html;state.previewHasRun=true;togglePreview(true);toast("미리보기를 실행했습니다.");
+}
+function toggleFilePanel(force){
+  const panel=$("#filePanel"),back=$("#drawerBackdrop"),open=typeof force==="boolean"?force:panel.classList.contains("collapsed");
+  panel.classList.toggle("collapsed",!open);back.classList.toggle("hidden",!open);$("#menuToggle").setAttribute("aria-expanded",String(open));
+}
+function updateViewport(){const h=window.visualViewport?.height||window.innerHeight;document.documentElement.style.setProperty("--visible-height",`${h}px`);}
+
+function setupEvents(){
+  $("#menuToggle").addEventListener("click",()=>toggleFilePanel());$("#drawerBackdrop").addEventListener("click",()=>toggleFilePanel(false));
+  $("#openBtn").addEventListener("click",()=>{const m=$("#openMenu"),o=m.hidden;m.hidden=!o;$("#openBtn").setAttribute("aria-expanded",String(o));});
+  $("#openFilesBtn").addEventListener("click",()=>{$("#openMenu").hidden=true;$("#openBtn").setAttribute("aria-expanded","false");importWithPicker();});
+  $("#openFolderBtn").addEventListener("click",()=>{$("#openMenu").hidden=true;$("#openBtn").setAttribute("aria-expanded","false");importFolderWithPicker();});
+  document.addEventListener("click",e=>{if(!e.target.closest(".open-menu-wrap")){$("#openMenu").hidden=true;$("#openBtn").setAttribute("aria-expanded","false");}});
+  $("#fileInput").addEventListener("change",e=>importInputFiles(e.target.files));$("#folderInput").addEventListener("change",e=>importInputFiles(e.target.files));
+  $("#editor").addEventListener("input",()=>{const f=active();if(f){f.content=$("#editor").value;f.dirty=true;labels();renderTree();persistSoon();}cursor();});
+  ["click","keyup","select"].forEach(t=>$("#editor").addEventListener(t,cursor));
+  $("#newBtn").addEventListener("click",newDocument);$("#saveBtn").addEventListener("click",saveCurrent);$("#saveAsBtn").addEventListener("click",openSaveDialog);
+  $("#runBtn").addEventListener("click",runPreview);$("#refreshBtn").addEventListener("click",runPreview);$("#togglePreviewBtn").addEventListener("click",()=>togglePreview());
+  $("#saveExtension").addEventListener("change",()=>{$("#customExtensionWrap").hidden=$("#saveExtension").value!=="custom";if($("#saveExtension").value==="custom")$("#customExtension").focus();});
+  $("#cancelSaveBtn").addEventListener("click",closeSaveDialog);$("#saveDialog").addEventListener("click",e=>{if(e.target===$("#saveDialog"))closeSaveDialog();});
+  $("#saveForm").addEventListener("submit",async e=>{e.preventDefault();let x=$("#saveExtension").value;if(x==="custom")x=$("#customExtension").value;if(!x){toast("확장자를 선택하거나 입력해 주세요.");return;}if(await saveAs($("#saveName").value,x))closeSaveDialog();});
+  $("#applyUpdateBtn").addEventListener("click",()=>state.worker?.postMessage({type:"SKIP_WAITING"}));
+  $("#dismissUpdateBtn").addEventListener("click",()=>$("#updateBanner").hidden=true);
+  window.addEventListener("beforeunload",e=>{sync();persist();if([...state.files.values()].some(f=>f.dirty)){e.preventDefault();e.returnValue="";}});
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){sync();persist();}});
+  window.addEventListener("resize",updateViewport);window.visualViewport?.addEventListener("resize",updateViewport);window.visualViewport?.addEventListener("scroll",updateViewport);
+}
+async function setupSW(){
+  if(!("serviceWorker"in navigator)||!/^https?:$/.test(location.protocol))return;
+  try{const reg=await navigator.serviceWorker.register("./sw.js",{scope:"./"});reg.update().catch(()=>{});
+    const show=()=>{if(reg.waiting&&navigator.serviceWorker.controller){state.worker=reg.waiting;$("#updateBanner").hidden=false;}};show();
+    reg.addEventListener("updatefound",()=>{const w=reg.installing;w?.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller){state.worker=w;$("#updateBanner").hidden=false;}});});
+    navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
+  }catch(e){console.warn("서비스 워커 등록 실패",e);}
+}
+async function init(){
+  $("#versionLabel").textContent=`v${VERSION}`;setupEvents();updateViewport();
+  try{state.db=await openDB();if(await restore())toast("이전 작업 내용을 복구했습니다.");else{const fid=addFile("새 문서","","새 문서");setActive(fid);$("#saveStatus").textContent="새 문서";}}
+  catch(e){console.warn("임시 저장 미지원",e);const fid=addFile("새 문서","","새 문서");setActive(fid);$("#saveStatus").textContent="새 문서 · 임시 저장 미지원";}
+  togglePreview(false);setupSW();
+}
+document.addEventListener("DOMContentLoaded",init);
 })();
