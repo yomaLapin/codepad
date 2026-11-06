@@ -103,3 +103,18 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .toolbar-right-group{gap:4px}
   .doc-btn-group{gap:2px}
 }
+
+/* v0.5.0 모바일 편집 편의성 */
+#editor { -webkit-appearance:none; border-radius:0; -webkit-user-select:text; user-select:text; }
+@media (max-width:600px) {
+  .pane-toolbar.unified-toolbar { gap:4px; padding-left:6px; padding-right:6px; }
+  .toolbar-right-group { gap:3px; }
+  .pane-title { max-width:28vw; }
+}
+@media (orientation:landscape) and (max-height:500px) {
+  .topbar { height:40px; min-height:40px; flex-basis:40px; }
+  .file-panel { top:40px; }
+  .drawer-backdrop { top:40px; }
+  .pane-toolbar.unified-toolbar { min-height:40px; padding-top:3px; padding-bottom:3px; }
+  #editor { padding:8px; font-size:13px; line-height:1.45; }
+}

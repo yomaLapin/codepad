@@ -2,7 +2,7 @@
   "id": "https://yomalapin.github.io/codepad/",
   "name": "NMT 코드패드",
   "short_name": "코드패드",
-  "description": "Studio NMT 개인용 간단 코드 편집기",
+  "description": "Studio NMT 개인용 텍스트 및 코드 편집기",
   "start_url": "https://yomalapin.github.io/codepad/",
   "scope": "https://yomalapin.github.io/codepad/",
   "display": "standalone",
