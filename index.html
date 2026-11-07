@@ -92,16 +92,46 @@
         .theme-light-btn { background: #ffffff; border: 2px solid #000000; }
         .theme-dark-btn { background: #333333; border: 2px solid #ffffff; }
 
+        /* 🌟 사이드바 반응형 접힘/펼침 애니메이션 제어 */
+        #sidebar {
+            width: 256px;
+            transition: margin-left 0.3s ease, transform 0.3s ease;
+        }
+        
+        /* 모바일 환경 (기본: 숨김, mobile-open 클래스 추가 시: 우측으로 슬라이드 인) */
+        @media (max-width: 767px) {
+            #sidebar {
+                position: fixed;
+                z-index: 30;
+                transform: translateX(-100%);
+            }
+            #sidebar.mobile-open {
+                transform: translateX(0);
+            }
+        }
+
+        /* 데스크탑(가로) 환경 (기본: 열림, desktop-closed 클래스 추가 시: 좌측으로 밀어내기) */
+        @media (min-width: 768px) {
+            #sidebar {
+                position: relative;
+                flex-shrink: 0;
+                margin-left: 0;
+            }
+            #sidebar.desktop-closed {
+                margin-left: -256px;
+            }
+        }
+
     </style>
 </head>
 <body class="theme-bg font-sans h-screen w-full overflow-hidden flex flex-col md:flex-row">
 
     <!-- 모바일 사이드바 배경 오버레이 -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden" onclick="toggleSidebar()"></div>
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden" onclick="closeSidebar()"></div>
 
-    <!-- 사이드바 (로컬 스토리지 파일 목록) -->
-    <aside id="sidebar" class="theme-sidebar border-r w-64 h-full fixed md:relative z-30 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
-        <div class="p-4 border-b theme-border flex justify-between items-center theme-header">
+    <!-- 사이드바 (로컬 스토리지 파일 목록) - Tailwind의 복잡한 위치 클래스를 제거하고 CSS로 제어합니다 -->
+    <aside id="sidebar" class="theme-sidebar border-r h-full flex flex-col shadow-lg md:shadow-none">
+        <div class="p-4 border-b theme-border flex justify-between items-center theme-header shrink-0">
             <h2 class="font-bold flex items-center gap-2">
                 <i class="ph ph-files text-xl theme-icon"></i>
                 Files
@@ -112,14 +142,15 @@
                     <div class="theme-btn theme-light-btn" onclick="setTheme('light')" title="라이트 테마"></div>
                     <div class="theme-btn theme-dark-btn" onclick="setTheme('dark')" title="다크 테마"></div>
                 </div>
-                <button class="md:hidden text-current opacity-70 hover:opacity-100 p-1" onclick="toggleSidebar()">
+                <!-- 닫기 버튼 (모바일 및 데스크탑 공용) -->
+                <button class="text-current opacity-70 hover:opacity-100 p-1" onclick="toggleSidebar()" title="사이드바 닫기">
                     <i class="ph ph-x text-xl"></i>
                 </button>
             </div>
         </div>
         
         <!-- PWA 강제 설치 버튼 -->
-        <div class="p-2 border-b theme-border">
+        <div class="p-2 border-b theme-border shrink-0">
             <button id="installBtn" class="w-full hidden p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors">
                 <i class="ph ph-download-simple mr-1"></i> 앱 설치하기 (PWA)
             </button>
@@ -131,19 +162,20 @@
         </div>
 
         <!-- 버전 및 제작자 표기 -->
-        <div class="p-4 border-t theme-border text-center theme-sidebar">
+        <div class="p-4 border-t theme-border text-center theme-sidebar shrink-0">
             <strong class="block text-base mb-1">NMT Note</strong>
             <span class="text-xs opacity-60">yomaLapin(202611-001)</span>
         </div>
     </aside>
 
     <!-- 메인 에디터 영역 -->
-    <main class="flex-1 h-full flex flex-col min-w-0 relative z-10 theme-bg">
+    <main class="flex-1 h-full flex flex-col min-w-0 relative z-10 theme-bg transition-all duration-300">
         
-        <!-- 툴바 (헤더) - 🌟 sticky top-0 속성을 추가하여 상단에 완벽하게 고정합니다. -->
+        <!-- 툴바 (헤더) - sticky top-0 속성을 추가하여 상단에 완벽하게 고정합니다. -->
         <header class="sticky top-0 z-20 w-full flex items-center justify-between p-2 md:p-3 border-b theme-border theme-header shadow-sm shrink-0">
             <div class="flex items-center gap-2 flex-1 min-w-0">
-                <button class="md:hidden p-2 theme-icon theme-hover rounded-md transition-colors" onclick="toggleSidebar()">
+                <!-- 🌟 햄버거 메뉴 버튼 (md:hidden을 제거하여 데스크탑에서도 항상 표시됩니다) -->
+                <button class="p-2 theme-icon theme-hover rounded-md transition-colors" onclick="toggleSidebar()" title="메뉴 열기/닫기">
                     <i class="ph ph-list text-2xl"></i>
                 </button>
                 
@@ -175,7 +207,7 @@
             </div>
         </header>
 
-        <!-- 에디터 (Textarea) - 🌟 min-h-0 속성을 추가하여 텍스트가 아무리 길어져도 레이아웃을 뚫고 나가지 않게 제어합니다. -->
+        <!-- 에디터 (Textarea) - min-h-0 속성을 추가하여 텍스트가 아무리 길어져도 레이아웃을 뚫고 나가지 않게 제어합니다. -->
         <div class="flex-1 flex w-full relative min-h-0">
             <textarea id="editor" class="w-full h-full p-4 md:p-6 resize-none font-mono text-sm md:text-base leading-relaxed overflow-y-auto" placeholder="내용을 입력하세요... (코드를 작성하거나 메모를 남겨보세요)" spellcheck="false"></textarea>
         </div>
@@ -261,6 +293,31 @@
         let savedFiles = {};
         let currentEditingFile = null;
 
+        // --- 3. 사이드바 제어 로직 (모바일/데스크탑 분리 대응) ---
+        function toggleSidebar() {
+            if (window.innerWidth < 768) {
+                // 모바일 환경
+                sidebar.classList.toggle('mobile-open');
+                if (sidebar.classList.contains('mobile-open')) {
+                    sidebarOverlay.classList.remove('hidden');
+                } else {
+                    sidebarOverlay.classList.add('hidden');
+                }
+            } else {
+                // 데스크탑 환경
+                sidebar.classList.toggle('desktop-closed');
+            }
+        }
+
+        function closeSidebar() {
+            if (window.innerWidth < 768) {
+                sidebar.classList.remove('mobile-open');
+                sidebarOverlay.classList.add('hidden');
+            } else {
+                sidebar.classList.add('desktop-closed');
+            }
+        }
+
         // --- 파일 관리 로직 ---
         function loadFilesFromStorage() {
             savedFiles = {};
@@ -276,7 +333,7 @@
         function saveFilesToStorage(filename, content) {
             try {
                 localStorage.setItem(STORAGE_PREFIX + filename, content);
-                loadFilesFromStorage(); // 딕셔너리 갱신
+                loadFilesFromStorage(); 
                 renderFileList();
             } catch (e) {
                 showMsg('저장 실패', '기기 저장 공간이 부족하거나 오류가 발생했습니다.');
@@ -287,7 +344,7 @@
             editor.value = '';
             filenameInput.value = 'untitled.txt';
             currentEditingFile = null;
-            if (window.innerWidth < 768) closeSidebar();
+            if (window.innerWidth < 768) closeSidebar(); // 모바일에서만 새파일 작성시 닫기
         }
 
         function saveToLocalStorage() {
@@ -309,7 +366,7 @@
                 editor.value = savedFiles[filename];
                 filenameInput.value = filename;
                 currentEditingFile = filename;
-                if (window.innerWidth < 768) closeSidebar();
+                if (window.innerWidth < 768) closeSidebar(); // 모바일에서만 열기 시 닫기
             }
         }
 
@@ -318,7 +375,7 @@
             
             showMsg('파일 삭제', `[${filename}] 파일을 삭제하시겠습니까?`, true, function() {
                 localStorage.removeItem(STORAGE_PREFIX + filename);
-                loadFilesFromStorage(); // 삭제 후 딕셔너리 재구축
+                loadFilesFromStorage(); 
                 renderFileList();
                 
                 if (currentEditingFile === filename) {
@@ -378,7 +435,6 @@
 
             filenames.forEach(filename => {
                 const item = document.createElement('div');
-                // 모바일 환경을 고려하여 hover 액션을 줄이고 항상 잘 보이게 배치
                 item.className = 'flex items-center justify-between p-2 mb-1 rounded cursor-pointer theme-hover transition-colors';
                 
                 let icon = 'ph-file-text';
@@ -391,29 +447,12 @@
                         <i class="ph ${icon} theme-icon text-lg flex-shrink-0"></i>
                         <span class="text-sm truncate font-medium text-current">${filename}</span>
                     </div>
-                    <!-- 모바일에서도 항상 보이도록 opacity 속성을 고정하고, 색상을 테마 글자색으로 맞췄습니다 -->
                     <button class="p-2 transition-colors hover:text-red-500" style="color: var(--text-color); opacity: 0.7;" onclick="deleteFile('${filename}', event)">
                         <i class="ph ph-trash text-lg"></i>
                     </button>
                 `;
                 fileListContainer.appendChild(item);
             });
-        }
-
-        function toggleSidebar() {
-            if (sidebar.classList.contains('-translate-x-full')) {
-                openSidebar();
-            } else {
-                closeSidebar();
-            }
-        }
-        function openSidebar() {
-            sidebar.classList.remove('-translate-x-full');
-            sidebarOverlay.classList.remove('hidden');
-        }
-        function closeSidebar() {
-            sidebar.classList.add('-translate-x-full');
-            sidebarOverlay.classList.add('hidden');
         }
 
         // Tab 키 띄어쓰기 4칸 적용
@@ -471,10 +510,10 @@
         // 확인 버튼 누를 시 실행 함수
         function confirmMsg() {
             if(msgConfirmCallback) {
-                msgConfirmCallback(); // 삭제 명령 실행
+                msgConfirmCallback(); 
                 msgConfirmCallback = null;
             }
-            closeMsg(); // 창 닫기
+            closeMsg(); 
         }
 
         // --- 서비스 워커 등록 (PWA 동작용) ---
