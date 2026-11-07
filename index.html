@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NMT Note</title>
+  <!-- PWA 매니페스트 연결 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#333333">
+  
+  <style>
+    /* 기본 다크(Dark) 테마 변수 설정 */
+    :root {
+      --bg-color: #333333; /* 다크 그레이 */
+      --text-color: #F2F0E9; /* 웜 화이트 */
+      --sidebar-bg: #222222;
+      --border-color: #555555;
+      --btn-bg: #444444;
+      --btn-hover: #555555;
+      --input-bg: #2a2a2a;
+    }
+
+    /* 라이트(Light) 테마 변수 설정 */
+    body.light-theme {
+      --bg-color: #ffffff;
+      --text-color: #000000;
+      --sidebar-bg: #f7f7f7;
+      --border-color: #cccccc;
+      --btn-bg: #e0e0e0;
+      --btn-hover: #d0d0d0;
+      --input-bg: #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    /* 사이드바 영역 */
+    .sidebar {
+      width: 250px;
+      background-color: var(--sidebar-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 15px;
+      transition: background-color 0.3s;
+    }
+    
+    .sidebar h2 {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .btn-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+    button {
+      padding: 10px;
+      background-color: var(--btn-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 0.9rem;
+    }
+    button:hover { background-color: var(--btn-hover); }
+
+    /* 강제 설치 버튼 (PWA) */
+    #installBtn {
+      background-color: #0078D7;
+      color: white;
+      border: none;
+      font-weight: bold;
+      display: none; /* 기본 숨김 */
+    }
+    #installBtn:hover { background-color: #005a9e; }
+
+    hr { border: 0; border-top: 1px solid var(--border-color); margin: 10px 0; }
+
+    /* 내 파일 영역 헤더 (테마 버튼 포함) */
+    .file-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .file-header h3 { font-size: 1rem; }
+    
+    .theme-toggles { display: flex; gap: 5px; }
+    .theme-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .theme-light-btn { background: #ffffff; border: 1px solid #000000; }
+    .theme-dark-btn { background: #333333; border: 1px solid #ffffff; }
+
+    /* 파일 리스트 */
+    #fileList {
+      list-style: none;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+    #fileList li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      margin-bottom: 5px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    #fileList li:hover { opacity: 0.8; }
+    .file-name-text { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .del-btn {
+      background: transparent;
+      color: #ff5555;
+      border: none;
+      padding: 5px;
+      margin-left: 5px;
+      font-weight: bold;
+    }
+    .del-btn:hover { color: #ff0000; background: transparent; }
+
+    /* 버전 및 제작자 표기 */
+    .brand-info {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: gray;
+    }
+    .brand-info strong { display: block; font-size: 0.9rem; margin-bottom: 3px; color: var(--text-color); }
+
+    /* 에디터 메인 영역 */
+    .main-content {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 15px;
+      background-color: var(--bg-color);
+    }
+    .top-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    #fileName {
+      flex-grow: 1;
+      padding: 10px;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+    #editor {
+      flex-grow: 1;
+      width: 100%;
+      resize: none;
+      padding: 15px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 1rem;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      outline: none;
+    }
+
+    /* 기기 파일 불러오기 숨김 처리 */
+    #fileInput { display: none; }
+
+    @media (max-width: 600px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); padding: 10px; }
+      #fileList { max-height: 120px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 사이드바 -->
+  <div class="sidebar">
+    <h2>NMT Note</h2>
+    
+    <div class="btn-group">
+      <button id="installBtn">앱 설치하기 (PWA)</button>
+      <button onclick="newFile()">새로 만들기</button>
+      <button onclick="document.getElementById('fileInput').click()">기기에서 불러오기</button>
+      <input type="file" id="fileInput">
+      <button onclick="saveToBrowser()">브라우저 저장</button>
+    </div>
+    
+    <hr>
+    
+    <!-- 내 파일 영역 -->
+    <div class="file-header">
+      <h3>[내 파일]</h3>
+      <div class="theme-toggles">
+        <div class="theme-btn theme-light-btn" onclick="setTheme('light')" title="라이트 테마"></div>
+        <div class="theme-btn theme-dark-btn" onclick="setTheme('dark')" title="다크 테마"></div>
+      </div>
+    </div>
+    
+    <ul id="fileList"></ul>
+
+    <div class="brand-info">
+      <strong>NMT Note</strong>
+      yomaLapin(202611-001)
+    </div>
+  </div>
+
+  <!-- 에디터 영역 -->
+  <div class="main-content">
+    <div class="top-bar">
+      <input type="text" id="fileName" value="untitled.txt" placeholder="파일명.확장자 (예: test.py, index.html)">
+      <button onclick="downloadFile()">내려받기</button>
+    </div>
+    <textarea id="editor" placeholder="여기에 텍스트나 코드를 작성하세요..."></textarea>
+  </div>
+
+  <script>
+    // --- 1. 테마(배경색) 설정 로직 ---
+    function setTheme(themeName) {
+      if (themeName === 'light') {
+        document.body.classList.add('light-theme');
+      } else {
+        document.body.classList.remove('light-theme');
+      }
+      localStorage.setItem('nmtnote_theme', themeName); // 디폴트 유지를 위해 저장
+    }
+
+    // 초기 테마 로드 (기본값: 다크)
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('nmtnote_theme');
+      if (savedTheme === 'light') {
+        setTheme('light');
+      } else {
+        setTheme('dark'); // 설정이 없으면 다크가 디폴트
+      }
+      renderFileList();
+    });
+
+    // --- 2. PWA 설치 로직 (강제 설치 버튼 포함) ---
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); // 기본 브라우저 설치 팝업 차단
+      deferredPrompt = e; // 프롬프트 이벤트 보관
+      
+      // 이미 PWA(Standalone) 모드로 실행 중인지 확인
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        installBtn.style.display = 'block'; // 설치 가능할 때만 버튼 노출
+      }
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt(); // 설치 팝업 호출
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBtn.style.display = 'none'; // 설치 완료 시 버튼 숨김
+        }
+        deferredPrompt = null;
+      }
+    });
+
+    // 앱이 이미 설치되어 실행될 때 버튼 숨김 처리
+    window.addEventListener('appinstalled', () => {
+      installBtn.style.display = 'none';
+    });
+
+    // --- 3. 에디터 주요 기능 ---
+    const editor = document.getElementById('editor');
+    const fileNameInput = document.getElementById('fileName');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+
+    // NMT Note 전용 저장소 접두어 (충돌 방지)
+    const STORAGE_PREFIX = 'nmtnote_file_';
+
+    // (1) 새로 만들기
+    function newFile() {
+      fileNameInput.value = 'untitled.txt';
+      editor.value = '';
+    }
+
+    // (2) 기기에서 파일 불러오기
+    fileInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        fileNameInput.value = file.name;
+        editor.value = event.target.result;
+      };
+      reader.readAsText(file);
+      fileInput.value = ''; // 동일 파일 다시 불러오기 허용
+    });
+
+    // (3) 브라우저 로컬 저장
+    function saveToBrowser() {
+      const fName = fileNameInput.value.trim();
+      if (!fName) {
+        alert('파일명을 입력해주세요.');
+        return;
+      }
+      const storageKey = STORAGE_PREFIX + fName;
+      localStorage.setItem(storageKey, editor.value);
+      renderFileList(); // 리스트 새로고침
+    }
+
+    // (4) 지정 확장자로 내려받기
+    function downloadFile() {
+      const fName = fileNameInput.value || 'untitled.txt';
+      const text = editor.value;
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fName; // 확장자 그대로 다운로드
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // --- 4. 내 파일 관리 (삭제 버그 수정됨) ---
+    function renderFileList() {
+      fileList.innerHTML = '';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        // nmtnote_file_ 로 시작하는 데이터만 불러오기
+        if (key && key.startsWith(STORAGE_PREFIX)) {
+          const displayFileName = key.replace(STORAGE_PREFIX, '');
+          
+          const li = document.createElement('li');
+          
+          // 파일명 영역 (클릭 시 불러오기)
+          const textSpan = document.createElement('span');
+          textSpan.className = 'file-name-text';
+          textSpan.textContent = displayFileName;
+          textSpan.onclick = () => loadFromBrowser(key, displayFileName);
+          
+          // 삭제 버튼 (버그 수정: 정확한 Key 전달)
+          const delBtn = document.createElement('button');
+          delBtn.className = 'del-btn';
+          delBtn.textContent = 'X';
+          delBtn.onclick = (e) => {
+            e.stopPropagation(); // li 클릭(불러오기) 이벤트 방지
+            deleteFile(key);
+          };
+
+          li.appendChild(textSpan);
+          li.appendChild(delBtn);
+          fileList.appendChild(li);
+        }
+      }
+    }
+
+    function loadFromBrowser(key, displayFileName) {
+      const content = localStorage.getItem(key);
+      if (content !== null) {
+        fileNameInput.value = displayFileName;
+        editor.value = content;
+      }
+    }
+
+    function deleteFile(key) {
+      if (confirm('이 파일을 삭제하시겠습니까?')) {
+        localStorage.removeItem(key); // 확실하게 삭제 처리
+        renderFileList(); // 즉시 리스트 갱신
+        
+        // 만약 현재 열려있는 파일과 삭제한 파일이 같다면 화면 초기화
+        const currentOpenKey = STORAGE_PREFIX + fileNameInput.value.trim();
+        if (currentOpenKey === key) {
+          newFile();
+        }
+      }
+    }
+
+    // --- 5. 에디터 편의 기능 (Tab 띄어쓰기) ---
+    editor.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 4;
+      }
+    });
+
+    // --- 6. 서비스 워커 등록 (PWA 동작용) ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+          console.log('NMT Note Service Worker 등록 완료', reg);
+        }).catch((err) => {
+          console.log('Service Worker 등록 실패', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
