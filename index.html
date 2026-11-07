@@ -103,8 +103,8 @@
     <aside id="sidebar" class="theme-sidebar border-r w-64 h-full fixed md:relative z-30 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
         <div class="p-4 border-b theme-border flex justify-between items-center theme-header">
             <h2 class="font-bold flex items-center gap-2">
-                <i class="ph ph-files text-xl"></i>
-                [내 파일]
+                <i class="ph ph-files text-xl theme-icon"></i>
+                Files
             </h2>
             <div class="flex items-center gap-3">
                 <!-- 테마 변경 버튼 2개 -->
@@ -112,7 +112,7 @@
                     <div class="theme-btn theme-light-btn" onclick="setTheme('light')" title="라이트 테마"></div>
                     <div class="theme-btn theme-dark-btn" onclick="setTheme('dark')" title="다크 테마"></div>
                 </div>
-                <button class="md:hidden text-gray-500 hover:text-gray-800 p-1" onclick="toggleSidebar()">
+                <button class="md:hidden text-current opacity-70 hover:opacity-100 p-1" onclick="toggleSidebar()">
                     <i class="ph ph-x text-xl"></i>
                 </button>
             </div>
@@ -133,7 +133,7 @@
         <!-- 버전 및 제작자 표기 -->
         <div class="p-4 border-t theme-border text-center theme-sidebar">
             <strong class="block text-base mb-1">NMT Note</strong>
-            <span class="text-xs text-gray-500">yomaLapin(202611-001)</span>
+            <span class="text-xs opacity-60">yomaLapin(202611-001)</span>
         </div>
     </aside>
 
@@ -153,29 +153,24 @@
                 </div>
             </div>
 
-            <!-- 액션 버튼들 -->
-            <div class="flex items-center gap-1 md:gap-2 ml-2">
-                <button onclick="newFile()" class="p-2 theme-icon theme-hover rounded-md transition-colors flex items-center gap-1" title="새 파일">
-                    <i class="ph ph-plus-circle text-xl"></i>
-                    <span class="hidden md:inline text-sm font-medium text-current">새로 만들기</span>
+            <!-- 액션 버튼들 (박스 형태의 버튼 디자인) -->
+            <div class="flex items-center gap-1.5 md:gap-2 ml-2">
+                <button onclick="newFile()" class="px-2 md:px-3 py-1.5 border theme-border rounded shadow-sm theme-hover transition-colors font-bold uppercase text-xs md:text-sm tracking-wide text-current" title="새 파일">
+                    new
                 </button>
 
                 <!-- 숨겨진 파일 입력 필드 (로컬 기기에서 불러오기 용) -->
                 <input type="file" id="fileInput" class="hidden" onchange="importFile(event)">
-                <button onclick="document.getElementById('fileInput').click()" class="p-2 theme-icon theme-hover rounded-md transition-colors flex items-center gap-1" title="기기에서 불러오기">
-                    <i class="ph ph-upload-simple text-xl"></i>
-                    <span class="hidden md:inline text-sm font-medium text-current">불러오기</span>
+                <button onclick="document.getElementById('fileInput').click()" class="px-2 md:px-3 py-1.5 border theme-border rounded shadow-sm theme-hover transition-colors font-bold uppercase text-xs md:text-sm tracking-wide text-current" title="기기에서 불러오기">
+                    load
                 </button>
 
-                <div class="w-px h-6 bg-gray-500 mx-1"></div> <!-- 구분선 -->
-
-                <button onclick="saveToLocalStorage()" class="p-2 text-blue-500 hover:text-blue-400 theme-hover rounded-md transition-colors flex items-center gap-1" title="브라우저에 저장">
-                    <i class="ph ph-floppy-disk text-xl"></i>
-                    <span class="hidden md:inline text-sm font-medium">저장</span>
+                <button onclick="saveToLocalStorage()" class="px-2 md:px-3 py-1.5 border border-blue-500 text-blue-500 hover:bg-blue-600 hover:text-white rounded shadow-sm transition-colors font-bold uppercase text-xs md:text-sm tracking-wide" title="브라우저에 저장">
+                    save
                 </button>
 
-                <button onclick="exportFile()" class="p-2 theme-icon theme-hover rounded-md transition-colors flex items-center gap-1" title="기기로 다운로드">
-                    <i class="ph ph-download-simple text-xl"></i>
+                <button onclick="exportFile()" class="px-2 md:px-3 py-1.5 border theme-border rounded shadow-sm theme-hover transition-colors font-bold uppercase text-xs md:text-sm tracking-wide text-current" title="기기로 다운로드">
+                    down
                 </button>
             </div>
         </header>
@@ -373,8 +368,8 @@
             
             if (filenames.length === 0) {
                 fileListContainer.innerHTML = `
-                    <div class="text-center text-gray-500 text-sm mt-10">
-                        <i class="ph ph-folder-open text-4xl mb-2 theme-icon"></i><br>
+                    <div class="text-center opacity-60 text-sm mt-10">
+                        <i class="ph ph-folder-open text-4xl mb-2"></i><br>
                         저장된 파일이 없습니다.
                     </div>
                 `;
@@ -393,9 +388,10 @@
                 item.innerHTML = `
                     <div class="flex items-center gap-2 overflow-hidden flex-1" onclick="openFile('${filename}')">
                         <i class="ph ${icon} theme-icon text-lg flex-shrink-0"></i>
-                        <span class="text-sm truncate font-medium">${filename}</span>
+                        <span class="text-sm truncate font-medium text-current">${filename}</span>
                     </div>
-                    <button class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 md:opacity-100" onclick="deleteFile('${filename}', event)">
+                    <!-- 삭제 아이콘 색상을 글자색(var(--text-color))에 맞춤 -->
+                    <button class="opacity-0 group-hover:opacity-100 transition-opacity p-1 md:opacity-100 hover:text-red-500" style="color: var(--text-color);" onclick="deleteFile('${filename}', event)">
                         <i class="ph ph-trash"></i>
                     </button>
                 `;
